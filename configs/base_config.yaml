@@ -1,0 +1,86 @@
+# ============================================================
+# Base Configuration — Uncertainty-Aware Multilingual DocAI
+# ============================================================
+
+model:
+  backbone: "microsoft/layoutlmv3-base"       # Multimodal text + layout + image backbone; no detectron2 required
+  hidden_size: 768
+  num_labels_ser: 7                            # O, B-Header, I-Header, B-Question, I-Question, B-Answer, I-Answer
+  num_entity_types: 4                          # header, question, answer, other
+  dropout_rate: 0.1
+  mc_dropout_rate: 0.1                         # dropout kept active at inference for MC sampling
+  mc_forward_passes: 20                        # number of stochastic forward passes for uncertainty
+
+data:
+  xfund_url: "https://github.com/doc-analysis/XFUND/releases/download/v1.0"
+  languages: ["zh", "ja", "es", "fr", "it", "de", "pt"]   # 7 XFUND languages
+  max_seq_length: 512
+  image_size: [224, 224]
+  bbox_scale: 1000                             # normalize bboxes to 0-1000
+  label2id:
+    O: 0
+    B-HEADER: 1
+    I-HEADER: 2
+    B-QUESTION: 3
+    I-QUESTION: 4
+    B-ANSWER: 5
+    I-ANSWER: 6
+  id2label:
+    0: O
+    1: B-HEADER
+    2: I-HEADER
+    3: B-QUESTION
+    4: I-QUESTION
+    5: B-ANSWER
+    6: I-ANSWER
+
+training:
+  mode: "multitask"                            # language_specific | zero_shot | multitask
+  num_epochs: 30
+  batch_size: 2
+  gradient_accumulation_steps: 4
+  learning_rate: 5.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  max_grad_norm: 1.0
+  fp16: true
+  seed: 42
+  eval_steps: 500
+  save_steps: 500
+  logging_steps: 50
+  metric_for_best_model: "avg_f1"
+  greater_is_better: true
+  early_stopping_patience: 5
+
+  # Loss weights
+  ser_loss_weight: 1.0
+  re_loss_weight: 1.0
+
+  # Optimizer
+  optimizer: "adamw"
+  scheduler: "linear_warmup"
+
+uncertainty:
+  confidence_threshold: 0.70                  # below this → trigger human review
+  entropy_threshold: 0.5                      # token-level entropy threshold
+  calibration_method: "temperature_scaling"   # temperature_scaling | platt | isotonic
+
+inference:
+  batch_size: 4
+  ocr_engine: "easyocr"                       # EasyOCR is the supported OCR engine
+  output_format: "json"
+  include_confidence: true
+  include_bboxes: true
+  include_uncertainty_breakdown: true
+
+paths:
+  data_dir: "./xfund_data"
+  output_dir: "./outputs"
+  checkpoint_dir: "./checkpoints"
+  log_dir: "./logs"
+  cache_dir: "./cache"
+
+wandb:
+  project: "xfund-docai-uncertainty"
+  entity: null                                # set your wandb entity
+  enabled: true
